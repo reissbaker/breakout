@@ -1,9 +1,8 @@
 import './style.css'
-import { Input, ParticleEmitter, EmitterType, Engine, Actor, Color, CollisionType, vec, ActionSequence, ParallelActions } from "excalibur";
+import { DisplayMode, Input, ParticleEmitter, EmitterType, Engine, Actor, Color, CollisionType, vec, ActionSequence, ParallelActions } from "excalibur";
 
 const game = new Engine({
-  width: 800,
-  height: 600,
+  displayMode: DisplayMode.FitScreen,
   canvasElementId: "game",
   pointerScope: Input.PointerScope.Document,
   backgroundColor: Color.Black,
