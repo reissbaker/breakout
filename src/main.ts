@@ -1,23 +1,29 @@
 import './style.css'
-import { ParticleEmitter, EmitterType, Engine, Actor, Color, CollisionType, vec, ActionSequence, ParallelActions } from "excalibur";
+import { Input, ParticleEmitter, EmitterType, Engine, Actor, Color, CollisionType, vec, ActionSequence, ParallelActions } from "excalibur";
 
 const game = new Engine({
   width: 800,
   height: 600,
   canvasElementId: "game",
+  pointerScope: Input.PointerScope.Document,
+  backgroundColor: Color.Black,
 });
 
 game.start();
+
+// Padding used for game elements
+const padding = 10;
 
 // Track block kills
 let killCount = 0;
 
 // Create the paddle
+const paddleHeight = 20;
 const paddle = new Actor({
   x: 150,
-  y: game.drawHeight - 40,
+  y: game.drawHeight - padding - paddleHeight/2,
   width: 150,
-  height: 20,
+  height: paddleHeight,
   color: Color.Chartreuse,
 });
 
@@ -33,10 +39,11 @@ game.input.pointers.primary.on("move", (evt) => {
 });
 
 // Create the ball
+const ballRadius = 8;
 const ball = new Actor({
   x: 100,
   y: 300,
-  radius: 10,
+  radius: ballRadius,
   color: Color.Red,
 });
 
@@ -51,7 +58,7 @@ const emitter = new ParticleEmitter({
   beginColor: Color.Red,
   endColor: Color.Blue,
   emitterType: EmitterType.Circle,
-  radius: 5,
+  radius: ballRadius + 2,
   minVel: 100,
   maxVel: 200,
   minAngle: 0,
@@ -60,7 +67,7 @@ const emitter = new ParticleEmitter({
   opacity: 1,
   fadeFlag: true,
   particleLife: 1000,
-  maxSize: 10,
+  maxSize: ballRadius + 5,
   minSize: 1,
   isEmitting: true,
 });
@@ -92,15 +99,14 @@ ball.on("postupdate", () => {
 });
 
 // Create the bricks
-const padding = 10;
 const xoffset = 0;
 const yoffset = 0;
-const cols = 7;
-const rows = 5;
+const cols = 6;
+const rows = 4;
 
 const bricksXspace = game.drawWidth - xoffset * 2;
 const brickWidth = (bricksXspace - padding) / cols - padding;
-const brickHeight = 40;
+const brickHeight = 50;
 const bricks: Actor[] = [];
 
 for(let r = 0; r < rows; r++) {
@@ -121,18 +127,12 @@ for(let r = 0; r < rows; r++) {
 let colliding = false;
 ball.on("collisionstart", (ev) => {
   if(bricks.indexOf(ev.other) > -1) {
-    killCount++;
-    const brick = ev.other;
-    brick.body.collisionType = CollisionType.PreventCollision;
-    brick.color = Color.White;
-    const blink = new ActionSequence(brick, ctx => {
-      ctx.blink(32, 32, 1);
-    });
-    const move = new ActionSequence(brick, ctx => {
-      ctx.moveBy(ballDirectionUnit(5), BALL_SPEED);
-    });
-    brick.actions.runAction(new ParallelActions([ blink, move ])).die();
-    paddle.scale.x = 1 + 3 * killCount / (rows * cols);
+    destroyBrick(ev.other);
+
+    if(bricks.length === 0) {
+      alertAndEnd("You win!");
+      return;
+    }
   }
 
   if(colliding) return;
@@ -152,6 +152,47 @@ ball.on("collisionstart", (ev) => {
   ballBounceAnim();
 });
 
+function destroyBrick(brick: Actor) {
+  killCount++;
+  brick.body.collisionType = CollisionType.PreventCollision;
+  brick.color = Color.White;
+  const blink = new ActionSequence(brick, ctx => {
+    ctx.blink(32, 32, 1);
+  });
+  const move = new ActionSequence(brick, ctx => {
+    ctx.moveBy(ballDirectionUnit(5), BALL_SPEED);
+  });
+  brick.actions.runAction(new ParallelActions([ blink, move ])).die();
+  const paddleXscale = 1 + 3 * killCount / (rows * cols);
+  paddle.scale.x = paddleXscale;
+
+  const emitter = new ParticleEmitter({
+    beginColor: Color.Orange,
+    endColor: Color.White,
+    emitterType: EmitterType.Rectangle,
+    width: brickWidth,
+    height: brickHeight,
+    minVel: 100,
+    maxVel: 200,
+    acceleration: vec(0, 200),
+    minAngle: 0,
+    maxAngle: 2 * Math.PI,
+    emitRate: 400,
+    opacity: 1,
+    fadeFlag: true,
+    particleLife: 500,
+    maxSize: 4,
+    minSize: 1,
+    isEmitting: true,
+    pos: vec(brick.pos.x - brickWidth / 2, brick.pos.y - brickHeight /2),
+  });
+  game.add(emitter);
+  emitter.actions.delay(150).die();
+
+  const index = bricks.indexOf(brick);
+  bricks.splice(index, 1);
+}
+
 function ballBounceAnim() {
   const shakeDirection = ballDirectionUnit(4, true);
   game.currentScene.camera.shake(shakeDirection.x, shakeDirection.y, 100);
@@ -169,3 +210,14 @@ function ballDirectionUnit(moveUnit: number, invert: boolean = false) {
 ball.on("collisionend", () => {
   colliding = false;
 });
+
+ball.on("exitviewport", () => {
+  alertAndEnd("Game over");
+});
+
+function alertAndEnd(msg: string) {
+  game.stop();
+  setTimeout(() => {
+    alert(msg);
+  }, 0);
+}
