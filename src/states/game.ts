@@ -49,46 +49,26 @@ export default class Game extends TransitionTo<"Win" | "Lose", Props> {
     const ball = new Ball(ballRadius);
     engine.add(ball);
 
-    // Create the bricks
-    const xoffset = 0;
-    const yoffset = 0;
-    const cols = 6;
-    const rows = 4;
+    // Create the bricks and handle when they're destroyed
+    const bricks = makeBricks(padding, engine, ball, (brick) => {
+      killCount++;
+      const paddleXscale = 1 + 3 * killCount / ORIGINAL_NUM_BRICKS;
+      paddle.scale.x = paddleXscale;
+      const index = bricks.indexOf(brick);
+      bricks.splice(index, 1);
+      if(bricks.length === 0) this.win();
+    });
+    const ORIGINAL_NUM_BRICKS = bricks.length;
 
-    const bricksXspace = engine.drawWidth - xoffset * 2;
-    const brickWidth = (bricksXspace - padding) / cols - padding;
-    const brickHeight = 50;
-    const bricks: Brick[] = [];
-
-    for(let r = 0; r < rows; r++) {
-      for(let c = 0; c < cols; c++) {
-        const brick = new Brick({
-          x: xoffset + c * (brickWidth + padding) + padding + brickWidth / 2,
-          y: yoffset + r * (brickHeight + padding) + padding + brickHeight / 2,
-          width: brickWidth,
-          height: brickHeight,
-          engine: engine,
-          ball: ball,
-        });
-        bricks.push(brick);
-        engine.add(brick);
-      }
-    }
-
+    // Handle collisions
     let colliding = false;
     ball.on("collisionstart", (ev) => {
       if(colliding) return;
       colliding = true;
 
+      // Handle ball-to-brick collisions
       if(ev.other instanceof Brick) {
-        if(bricks.indexOf(ev.other) > -1) {
-          destroyBrick(ev.other);
-
-          if(bricks.length === 0) {
-            this.win();
-            return;
-          }
-        }
+        if(bricks.indexOf(ev.other) > -1) ev.other.destroy();
       }
 
       // Reverse direction on any collision
@@ -104,15 +84,6 @@ export default class Game extends TransitionTo<"Win" | "Lose", Props> {
 
       ball.bounceAnim(engine);
     });
-
-    function destroyBrick(brick: Brick) {
-      brick.destroy();
-      killCount++;
-      const paddleXscale = 1 + 3 * killCount / (rows * cols);
-      paddle.scale.x = paddleXscale;
-      const index = bricks.indexOf(brick);
-      bricks.splice(index, 1);
-    }
 
     ball.on("collisionend", () => {
       colliding = false;
@@ -134,4 +105,40 @@ export default class Game extends TransitionTo<"Win" | "Lose", Props> {
   private lose() {
     this.transitionTo("Lose");
   }
+}
+
+function makeBricks(padding: number, engine: Engine, ball: Ball, onDestroy: (b: Brick) => any) {
+  const xoffset = 0;
+  const yoffset = 0;
+  const cols = 6;
+  const rows = 4;
+
+  const bricksXspace = engine.drawWidth - xoffset * 2;
+  const brickWidth = (bricksXspace - padding) / cols - padding;
+  const brickHeight = 50;
+  const bricks: Brick[] = [];
+
+  for(let r = 0; r < rows; r++) {
+    for(let c = 0; c < cols; c++) {
+      const brick = new Brick({
+        x: xoffset + c * (brickWidth + padding) + padding + brickWidth / 2,
+        y: yoffset + r * (brickHeight + padding) + padding + brickHeight / 2,
+        width: brickWidth,
+        height: brickHeight,
+        engine: engine,
+        ball: ball,
+      });
+      brick.machine.state("DeadBrick").on("start", makeDestroyCallback(brick, onDestroy));
+      bricks.push(brick);
+      engine.add(brick);
+    }
+  }
+
+  return bricks;
+}
+
+function makeDestroyCallback(brick: Brick, onDestroy: (b: Brick) => any) {
+  return () => {
+    onDestroy(brick);
+  };
 }
