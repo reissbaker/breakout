@@ -40,8 +40,9 @@ export default class Game extends TransitionTo<"Win" | "Lose", Props> {
       return Math.min(Math.max(x, min), max);
     }
 
-    engine.input.pointers.primary.on("move", (evt) => {
-      paddle.pos.x = clamp(evt.worldPos.x, paddle.width / 2, engine.drawWidth - paddle.width / 2);
+    paddle.on("preupdate", () => {
+      const pointerPos = engine.input.pointers.primary.lastWorldPos;
+      paddle.pos.x = clamp(pointerPos.x, paddle.width / 2, engine.drawWidth - paddle.width / 2);
     });
 
     // Create the ball
