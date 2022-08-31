@@ -9,6 +9,7 @@ import { Machine } from "st4t3";
 import Game from "./states/game";
 import Win from "./states/win";
 import Lose from "./states/lose";
+import EndGame from "./states/end-game";
 
 const engine = new Engine({
   displayMode: DisplayMode.FitScreen,
@@ -23,7 +24,7 @@ const machine = new Machine({
     engine,
   },
   states: {
-    Game, Win, Lose,
+    Game, Win, Lose, EndGame,
   },
 });
 

@@ -2,7 +2,6 @@ import { TransitionTo } from "st4t3";
 import {
   ParticleEmitter,
   EmitterType,
-  Engine,
   Actor,
   Color,
   CollisionType,
@@ -14,7 +13,6 @@ import Ball from "../../ball";
 
 type Props = {
   brick: Actor,
-  engine: Engine,
   ball: Ball,
   width: number,
   height: number,
@@ -22,7 +20,7 @@ type Props = {
 export default class Dead extends TransitionTo<never, Props> {
   destroy() {}
 
-  override start({ ball, brick, engine, width, height }: Props) {
+  override start({ ball, brick, width, height }: Props) {
     brick.body.collisionType = CollisionType.PreventCollision;
     brick.color = Color.White;
     const blink = new ActionSequence(brick, ctx => {
@@ -53,7 +51,7 @@ export default class Dead extends TransitionTo<never, Props> {
       pos: vec(brick.pos.x - width / 2, brick.pos.y - height /2),
     });
 
-    engine.add(emitter);
+    brick.scene.add(emitter);
     emitter.actions.delay(150).die();
   }
 }

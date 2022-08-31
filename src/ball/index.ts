@@ -6,21 +6,23 @@ import {
   vec,
   ParticleEmitter,
   EmitterType,
+  Events,
 } from "excalibur";
 
 export default class Ball extends Actor {
-  private readonly _radius: number;
-  constructor(radius: number) {
+  constructor(
+    private readonly _radius: number,
+    private readonly collisionHandler: (e: Events.CollisionStartEvent) => any,
+  ) {
     super({
-      radius,
+      radius: _radius,
       x: 100,
       y: 300,
       color: Color.Red,
     });
-    this._radius = radius;
   }
 
-  override onInitialize(engine: Engine) {
+  override onInitialize() {
     this.body.collisionType = CollisionType.Passive;
 
     const emitter = new ParticleEmitter({
@@ -47,33 +49,58 @@ export default class Ball extends Actor {
       emitter.beginColor = this.color;
     });
 
-    engine.add(emitter);
+    this.scene.add(emitter);
 
     setTimeout(() => {
       this.vel = vec(this.speed(), this.speed());
     }, 1000);
+
+    let colliding = false;
+    this.on("collisionstart", (ev) => {
+      if(colliding) return;
+      colliding = true;
+
+      this.collisionHandler(ev);
+
+      // Reverse direction on any collision
+      const intersection = ev.contact.mtv.normalize();
+
+      // The largest component of intersection is the direction to flip
+      if(Math.abs(intersection.x) > Math.abs(intersection.y)) {
+        this.vel.x *= -1;
+      }
+      else {
+        this.vel.y *= -1;
+      }
+
+      this.bounceAnim();
+    });
+
+    this.on("collisionend", () => {
+      colliding = false;
+    });
   }
 
   override onPostUpdate(engine: Engine) {
     if(this.pos.x < this.width / 2) {
       this.vel.x = this.speed();
-      this.bounceAnim(engine);
+      this.bounceAnim();
     }
 
     if(this.pos.x + this.width / 2 > engine.drawWidth) {
       this.vel.x = this.speed() * -1;
-      this.bounceAnim(engine);
+      this.bounceAnim();
     }
 
     if(this.pos.y < this.height / 2) {
       this.vel.y = this.speed();
-      this.bounceAnim(engine);
+      this.bounceAnim();
     }
   }
 
-  bounceAnim(engine: Engine) {
+  bounceAnim() {
     const shakeDirection = this.directionUnit(4, true);
-    engine.currentScene.camera.shake(shakeDirection.x, shakeDirection.y, 100);
+    this.scene.camera.shake(shakeDirection.x, shakeDirection.y, 100);
     this.actions.scaleTo(vec(0.5, 0.5), vec(10, 10)).scaleTo(vec(1, 1), vec(10, 10));
     this.color = Color.White;
     this.actions.delay(100).callMethod(() => this.color = Color.Red);
